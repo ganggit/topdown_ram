@@ -1,0 +1,58 @@
+import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+import torch
+
+import utils
+import svhn_loader as svhn_loader
+
+from trainer_attack import Trainer
+from config import get_config
+from cifar_loader import CIFAR10Data
+
+def main(config):
+    utils.prepare_dirs(config)
+
+    # ensure reproducibility
+    torch.manual_seed(config.random_seed)
+    kwargs = {}
+    if config.use_gpu:
+        torch.cuda.manual_seed(config.random_seed)
+        kwargs = {"num_workers": 1, "pin_memory": True}
+
+    # config.data_dir = "/home/ganche/Downloads/project/Visual-Attention-Model/SVHN/data/SVHN_multi.pickle"
+    
+    cifar = CIFAR10Data("/home/ganche/Downloads/project/cifar10_challenge/cifar10_data")
+    # for large dataset 64*64
+    # config.data_dir = "/data2/share/ganche/SVHNClassifier/data"
+    #"/home/ganche/Downloads/project/recurrent-visual-attention/mnist_digit_sample_8dsistortions9x9.npz"
+    # instantiate data loaders
+    if config.is_train:
+        dloader = cifar.get_train_valid_loader(
+            config.batch_size,
+            config.random_seed,
+            config.valid_size,
+            config.shuffle,
+            config.show_sample,
+            **kwargs,
+        )
+    else:
+        dloader = cifar.get_test_loader(
+            config.batch_size, **kwargs,
+        )
+
+
+    trainer = Trainer(config, dloader)
+
+    # either train
+    if config.is_train:
+        utils.save_config(config)
+        trainer.train()
+    # or load a pretrained model and test
+    else:
+        trainer.test()
+
+
+if __name__ == "__main__":
+    config, unparsed = get_config()
+    main(config)
